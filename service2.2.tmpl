@@ -1,0 +1,87 @@
+package main
+import (
+           	"code.google.com/p/gorest"
+           	"net/http"
+           	"strconv"
+)
+
+// Plantilla que se llena con los atributos y nombre de una estructura cualquiera
+// en GO, para generar de manera automatica un conjunto de servicios
+// PUT, DELETE, POST y GET (altas, bajas, cambios y consultas)
+
+
+// Funcion principal
+func main() {
+           	gorest.RegisterService(new(DeclaranteService))
+           	http.Handle("/", gorest.Handle())
+           	http.ListenAndServe(":8787", nil)
+}
+type {{.ClassName}}Service struct {
+           	//Service level config
+           	gorest.RestService `root:"/{{.className}}-service/" consumes:"application/json" produces:"application/json"`
+           	//End-Point level configs: Field names must be the same as the corresponding method names,
+           	// but not-exported (starts with lowercase)
+           	//deleteDeclarante gorest.EndPoint `method:"DELETE" path:"/{{.className}}s/del/{Id:int}"`
+           	view{{.ClassName}}   gorest.EndPoint `method:"GET" path:"/{{.className}}s/{Id:int}" output:"{{.ClassName}}"`
+           	list{{.ClassName}}s  gorest.EndPoint `method:"GET" path:"/{{.className}}s/" output:"[]{{.ClassName}}"`
+           	delete{{.ClassName}} gorest.EndPoint `method:"DELETE" path:"/{{.className}}s/{Id:int}"`
+           	add{{.ClassName}}	gorest.EndPoint `method:"PUT" path:"/{{.className}}s/" postdata:"{{.ClassName}}"`
+           	mod{{.ClassName}}	gorest.EndPoint `method:"POST" path:"/{{.className}}s/" postdata:"{{.ClassName}}"`
+}
+func (serv {{.ClassName}}Service) List{{.ClassName}}s() []{{.ClassName}} {
+           	serv.ResponseBuilder().CacheMaxAge(60 * 60 * 24) //List cacheable for a day. More work to come on this, Etag, etc
+           	return {{.className}}Store
+}
+func (serv {{.ClassName}}Service) View{{.ClassName}}(id int) (ret{{.ClassName}} {{.ClassName}}) {
+           	for _, {{.className}} := range {{.className}}Store {
+                          	if {{.className}}.Id == id {
+                                          	ret{{.ClassName}} = {{.className}}
+                                          	return
+                          	}
+           	}
+           	serv.ResponseBuilder().SetResponseCode(404).Overide(true)
+           	return
+}
+func (serv {{.ClassName}}Service) Delete{{.ClassName}}(id int) {
+           	for pos, {{.className}} := range {{.className}}Store {
+                          	if {{.className}}.Id == id {
+                                          	{{.className}}Store[pos] = {{.className}}
+                                          	return //Default http code for DELETE is 200
+                          	}
+           	}
+           	serv.ResponseBuilder().SetResponseCode(404).Overide(true)
+           	return
+}
+func (serv {{.ClassName}}Service) Add{{.ClassName}}(temp {{.ClassName}}) {
+           	//Item Id not in database, so create new
+           	temp.Id = len({{.className}}Store) + 1
+           	{{.className}}Store = append({{.className}}Store, temp)
+           	serv.ResponseBuilder().Created("http://localhost:8787/declarante-service/{{.className}}s/" + string(temp.Id)) //Created, http 201
+}
+func (serv {{.ClassName}}Service) Mod{{.ClassName}}(temp {{.ClassName}}) {
+           	for pos, {{.className}} := range {{.className}}Store {
+                          	if {{.className}}.Id == temp.Id {
+                                          	{{.className}}Store[pos] = temp
+                                          	serv.ResponseBuilder().SetResponseCode(200) //Updated http 200, or you could just return without setting this. 200 is the default for POST
+                                          	return
+                          	}
+           	}
+}
+//**************** End of service *******************
+type {{.ClassName}} struct {
+  	Id int      	
+  	{{.campos}}
+}
+var (
+   	{{.className}}Store  []{{.ClassName}}
+)
+func init() {
+   	{{.className}}Store = make([]{{.ClassName}}, 0)
+   	init{{.ClassName}}s()
+}
+func init{{.ClassName}}s() {
+   	for i := 1; i <= 10; i++ {
+               {{.className}}Store = append({{.className}}Store, {{.ClassName}}{Id: i,
+                 	{{.camposini}}
+   	}
+}
